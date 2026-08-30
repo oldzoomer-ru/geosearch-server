@@ -18,7 +18,6 @@ public class OverpassApiClientConfig {
                 .baseUrl(config.getBaseUrl())
                 .requestFactory(createRequestFactory(config))
                 .defaultHeader("Accept", "application/json")
-                .defaultHeader("Content-Type", "application/x-www-form-urlencoded")
                 .build();
     }
 

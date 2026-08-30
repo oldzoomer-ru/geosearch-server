@@ -10,10 +10,7 @@ import ru.oldzoomer.geosearch.server.dto.TransportStopDto;
 import tools.jackson.databind.JsonNode;
 import tools.jackson.databind.ObjectMapper;
 
-import java.util.ArrayList;
-import java.util.HashSet;
-import java.util.List;
-import java.util.Set;
+import java.util.*;
 
 /**
  * Сервис для работы с данными общественного транспорта.
@@ -31,8 +28,9 @@ public class TransportService {
             (
               node["highway"="bus_stop"](%s,%s,%s,%s);
               way["highway"="bus_stop"](%s,%s,%s,%s);
+              relation["route"]["route"~"bus|tram|trolleybus|train|subway"](%s,%s,%s,%s);
             );
-            out center;
+            out body;
             """;
 
     private final OverpassApiClient overpassApiClient;
@@ -53,6 +51,7 @@ public class TransportService {
         double[] bbox = calculateBbox(lat, lon, radiusKm);
         String query = String.format(STOPS_QUERY_TEMPLATE,
                 bbox[1], bbox[0], bbox[3], bbox[2],
+                bbox[1], bbox[0], bbox[3], bbox[2],
                 bbox[1], bbox[0], bbox[3], bbox[2]);
 
         String response = overpassApiClient.query(query);
@@ -71,9 +70,9 @@ public class TransportService {
 
         String query = String.format("""
                 [out:json][timeout:30];
-                rel[%s](%s);
+                rel(id)[route](%s);
                 out body;
-                """, "route", routeId);
+                """, routeId);
 
         String response = overpassApiClient.query(query);
         return parseRoute(response, routeId);
@@ -94,14 +93,15 @@ public class TransportService {
     }
 
     /**
-     * Парсит JSON-ответ и извлекает остановки.
+     * Парсит JSON-ответ и извлекает остановки с маршрутами.
      */
     private List<TransportStopDto> parseStops(String jsonResponse) {
         try {
             JsonNode root = objectMapper.readTree(jsonResponse);
             JsonNode elements = root.path("elements");
 
-            List<TransportStopDto> stops = new ArrayList<>();
+            // 1. Сначала собираем все остановки
+            Map<String, TransportStopDto> stopsMap = new LinkedHashMap<>();
             for (JsonNode element : elements) {
                 String type = element.path("type").asString();
                 long id = element.path("id").asLong();
@@ -125,16 +125,66 @@ public class TransportService {
 
                 String operator = element.path("tags").path("operator").asString(null);
 
-                stops.add(TransportStopDto.builder()
+                TransportStopDto stop = TransportStopDto.builder()
                         .id(String.valueOf(id))
                         .name(name)
                         .location(location)
                         .operator(operator)
                         .routes(new ArrayList<>())
-                        .build());
+                        .build();
+                stopsMap.put(String.valueOf(id), stop);
             }
 
-            log.info("Found {} transport stops", stops.size());
+            // 2. Собираем маршруты (relations) и привязываем к остановкам
+            int relationCount = 0;
+            int matchedCount = 0;
+            for (JsonNode element : elements) {
+                String type = element.path("type").asString();
+                if (!"relation".equals(type)) {
+                    continue;
+                }
+                relationCount++;
+
+                JsonNode tags = element.path("tags");
+                String routeType = tags.path("route").asString(null);
+                // Фильтруем только transport-маршруты
+                if (!"bus".equals(routeType)
+                        && !"tram".equals(routeType)
+                        && !"trolleybus".equals(routeType)
+                        && !"train".equals(routeType)
+                        && !"subway".equals(routeType)) {
+                    continue;
+                }
+
+                String routeRef = tags.path("ref").asString(null);
+                String routeName = tags.path("name").asString(null);
+                String routeLabel = routeRef != null ? routeRef : routeName;
+                if (routeLabel == null) {
+                    routeLabel = String.valueOf(element.path("id").asLong(0));
+                }
+
+                // Ищем остановки в members этого маршрута
+                JsonNode members = element.path("members");
+                for (JsonNode member : members) {
+                    String memberType = member.path("type").asString();
+                    long memberId = member.path("ref").asLong(0);
+                    String memberRole = member.path("role").asString(null);
+
+                    // Маршрут включает остановки с ролью platform (стандарт OSM для route relations)
+                    if (("node".equals(memberType) || "way".equals(memberType))
+                            && ("platform".equals(memberRole) || "stop_position".equals(memberRole) || "stop".equals(memberRole))) {
+                        String stopId = String.valueOf(memberId);
+                        TransportStopDto stop = stopsMap.get(stopId);
+                        if (stop != null && !stop.getRoutes().contains(routeLabel)) {
+                            stop.getRoutes().add(routeLabel);
+                            matchedCount++;
+                        }
+                    }
+                }
+            }
+
+            List<TransportStopDto> stops = new ArrayList<>(stopsMap.values());
+            log.info("Found {} transport stops, {} relations, {} route assignments", stops.size(), relationCount, matchedCount);
             return stops;
 
         } catch (Exception e) {

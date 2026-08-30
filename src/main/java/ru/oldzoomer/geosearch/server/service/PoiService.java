@@ -83,20 +83,28 @@ public class PoiService {
         query.append("(\n");
 
         if (categories == null || categories.length == 0) {
-            query.append("  node[").append("amenity=").append("*").append("](")
+            query.append("  node[\"amenity\"](")
                     .append(bbox[1]).append(",").append(bbox[0]).append(",").append(bbox[3]).append(",").append(bbox[2]).append(");\n");
-            query.append("  node[").append("SHOP=").append("*").append("](")
+            query.append("  node[\"shop\"](")
                     .append(bbox[1]).append(",").append(bbox[0]).append(",").append(bbox[3]).append(",").append(bbox[2]).append(");\n");
-            query.append("  node[").append("tourism=").append("*").append("](")
+            query.append("  node[\"tourism\"](")
                     .append(bbox[1]).append(",").append(bbox[0]).append(",").append(bbox[3]).append(",").append(bbox[2]).append(");\n");
-            query.append("  node[").append("leisure=").append("*").append("](")
+            query.append("  node[\"leisure\"](")
                     .append(bbox[1]).append(",").append(bbox[0]).append(",").append(bbox[3]).append(",").append(bbox[2]).append(");\n");
         } else {
             for (PoiCategory category : categories) {
                 String osmFilter = CATEGORY_TO_OSM_MAP.get(category);
                 if (osmFilter != null) {
-                    query.append("  node[\"").append(osmFilter).append("\"](")
-                            .append(bbox[1]).append(",").append(bbox[0]).append(",").append(bbox[3]).append(",").append(bbox[2]).append(");\n");
+                    String[] parts = osmFilter.split("=", 2);
+                    String key = parts[0].toLowerCase();
+                    String value = parts.length > 1 ? parts[1].toLowerCase() : "";
+                    if (value.isEmpty()) {
+                        query.append("  node[\"").append(key).append("\"](")
+                                .append(bbox[1]).append(",").append(bbox[0]).append(",").append(bbox[3]).append(",").append(bbox[2]).append(");\n");
+                    } else {
+                        query.append("  node[\"").append(key).append("\"=\"").append(value).append("\"](")
+                                .append(bbox[1]).append(",").append(bbox[0]).append(",").append(bbox[3]).append(",").append(bbox[2]).append(");\n");
+                    }
                 }
             }
         }

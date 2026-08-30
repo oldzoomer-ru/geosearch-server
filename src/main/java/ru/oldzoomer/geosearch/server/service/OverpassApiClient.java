@@ -29,10 +29,13 @@ public class OverpassApiClient {
      * @throws RestClientException если запрос не удался
      */
     public String query(String osmQuery) {
+        if (osmQuery == null || osmQuery.isBlank()) {
+            throw new IllegalArgumentException("Overpass query must not be null or blank");
+        }
         log.debug("Executing Overpass query: {}", osmQuery);
         try {
             return restClient.post()
-                    .uri(uriBuilder -> uriBuilder.queryParam("data", osmQuery).build())
+                    .body(osmQuery)
                     .retrieve()
                     .body(String.class);
         } catch (RestClientException e) {
