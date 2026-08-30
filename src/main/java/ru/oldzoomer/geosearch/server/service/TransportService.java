@@ -70,7 +70,7 @@ public class TransportService {
 
         String query = String.format("""
                 [out:json][timeout:30];
-                rel(id)[route](%s);
+                rel(id:%s)[route];
                 out body;
                 """, routeId);
 
@@ -162,6 +162,7 @@ public class TransportService {
                 if (routeLabel == null) {
                     routeLabel = String.valueOf(element.path("id").asLong(0));
                 }
+                String routeId = String.valueOf(element.path("id").asLong(0));
 
                 // Ищем остановки в members этого маршрута
                 JsonNode members = element.path("members");
@@ -175,9 +176,16 @@ public class TransportService {
                             && ("platform".equals(memberRole) || "stop_position".equals(memberRole) || "stop".equals(memberRole))) {
                         String stopId = String.valueOf(memberId);
                         TransportStopDto stop = stopsMap.get(stopId);
-                        if (stop != null && !stop.getRoutes().contains(routeLabel)) {
-                            stop.getRoutes().add(routeLabel);
-                            matchedCount++;
+                        if (stop != null) {
+                            boolean alreadyPresent = stop.getRoutes().stream()
+                                    .anyMatch(r -> r.getId().equals(routeId));
+                            if (!alreadyPresent) {
+                                stop.getRoutes().add(TransportStopDto.RouteInfo.builder()
+                                        .id(routeId)
+                                        .name(routeLabel)
+                                        .build());
+                                matchedCount++;
+                            }
                         }
                     }
                 }

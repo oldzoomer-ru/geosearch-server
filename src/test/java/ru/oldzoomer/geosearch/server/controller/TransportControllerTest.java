@@ -48,7 +48,10 @@ class TransportControllerTest {
                 .location(ru.oldzoomer.geosearch.server.dto.GeoLocation.builder()
                         .lat(55.7558).lon(37.6173).build())
                 .operator("Московский Транспорт")
-                .routes(List.of("1", "2"))
+                .routes(List.of(
+                        TransportStopDto.RouteInfo.builder().id("111").name("1").build(),
+                        TransportStopDto.RouteInfo.builder().id("222").name("2").build()
+                ))
                 .build();
 
         when(transportService.getStopsNear(55.7558, 37.6173, 1.0))

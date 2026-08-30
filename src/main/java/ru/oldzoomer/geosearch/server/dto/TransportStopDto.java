@@ -41,9 +41,29 @@ public class TransportStopDto {
     private GeoLocation location;
 
     /**
-     * Список идентификаторов маршрутов, проходящих через остановку.
+     * Список маршрутов, проходящих через остановку.
      */
-    private List<String> routes;
+    private List<RouteInfo> routes;
+
+    /**
+     * Информация о маршруте, проходящем через остановку.
+     */
+    @Data
+    @Builder
+    @NoArgsConstructor
+    @AllArgsConstructor
+    public static class RouteInfo {
+
+        /**
+         * Уникальный идентификатор маршрута в OSM.
+         */
+        private String id;
+
+        /**
+         * Номер или название маршрута (ref/name).
+         */
+        private String name;
+    }
 
     /**
      * Оператор (перевозчик).
