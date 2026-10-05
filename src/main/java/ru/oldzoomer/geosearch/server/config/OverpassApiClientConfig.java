@@ -12,8 +12,7 @@ import org.springframework.web.client.RestClient;
 @Configuration
 public class OverpassApiClientConfig {
 
-    @Bean("overpassRestClient")
-    public RestClient overpassRestClient(OverpassApiConfig config) {
+    @Bean("overpassRestClient") RestClient overpassRestClient(OverpassApiConfig config) {
         return RestClient.builder()
                 .baseUrl(config.getBaseUrl())
                 .requestFactory(createRequestFactory(config))

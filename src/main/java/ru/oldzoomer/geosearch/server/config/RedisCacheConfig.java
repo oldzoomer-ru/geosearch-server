@@ -31,8 +31,7 @@ public class RedisCacheConfig {
     private static final Duration POI_TTL = Duration.ofMinutes(30);
     private static final Duration ROUTES_TTL = Duration.ofHours(1);
 
-    @Bean
-    public RedisCacheManager cacheManager(RedisConnectionFactory connectionFactory) {
+    @Bean RedisCacheManager cacheManager(RedisConnectionFactory connectionFactory) {
         var baseConfig = RedisCacheConfiguration.defaultCacheConfig()
                 .entryTtl(Duration.ofMinutes(15))
                 .serializeKeysWith(RedisSerializationContext.SerializationPair.fromSerializer(new StringRedisSerializer()))
